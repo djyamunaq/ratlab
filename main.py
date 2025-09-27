@@ -2,6 +2,7 @@
 import pygame
 import sys
 import math
+from random import randint, random
 
 class Game3D:
     def __init__(self, width=800, height=600):
@@ -10,22 +11,23 @@ class Game3D:
         
         pygame.init()
         self.screen = pygame.display.set_mode((width, height))
-        pygame.display.set_caption("3D Environment - Step 1")
+        pygame.display.set_caption("3D Environment")
         
         # Basic 3D camera setup
-        self.camera_pos = [0, 0, 5]  # x, y, z position in 3D space
+        self.camera_pos = [0, 5, 0]  # x, y, z position in 3D space
         self.camera_yaw = 0  # camera yaw
-        self.camera_target = [0, 0, 0]  # Where camera is looking
         
         # Simple 3D objects: list of (x, y, z, size, color)
-        self.objects_3d = [
-            # Position x, y, z, size, color
-            [0, 0, 0, 1.0, (255, 0, 0)],    # Red cube at center
-            [2, 0, -3, 0.8, (0, 255, 0)],   # Green cube
-            [-2, 1, -5, 1.2, (0, 0, 255)],  # Blue cube
-        ]
+        self.objects_3d = [[randint(-100, 100), randint(0, 100), randint(-100, 100), 2.0*random(),  (randint(0, 255), randint(0, 255), randint(0, 255))] for i in range(100)]
         
-        self.background_color = (255, 255, 255)
+        # self.objects_3d = [
+        #     # Position x, y, z, size, color
+        #     [0, 0, 5, 1.0, (255, 0, 0)],    # Red cube at center
+        #     [2, 0, -3, 0.8, (0, 255, 0)],   # Green cube
+        #     [-2, 1, -5, 1.2, (0, 0, 255)],  # Blue cube
+        # ]
+        
+        self.background_color = (30, 30, 40)
     
     def project_3d_to_2d(self, point_3d):
         """
@@ -34,41 +36,62 @@ class Game3D:
         """
         x, y, z = point_3d
 
-        rotated_x = x*math.cos(self.camera_yaw) - z*math.sin(self.camera_yaw) 
-        rotated_z = x*math.sin(self.camera_yaw) + z*math.cos(self.camera_yaw)
-        
+        x_rel = x - self.camera_pos[0]
+        z_rel = z - self.camera_pos[2]
+
+        rotated_x = x_rel*math.cos(self.camera_yaw) - z_rel*math.sin(self.camera_yaw) 
+        rotated_z = x_rel*math.sin(self.camera_yaw) + z_rel*math.cos(self.camera_yaw)
+
+        # print(f'Pos: ({self.camera_pos[0]}, {self.camera_pos[1]}, {self.camera_pos[2]}) | Yaw: {self.camera_yaw}')
+        # print(f'Abs: ({x}, {y}, {z}) | Rel: ({rotated_x}, {y}, {rotated_z})')
+
         x = rotated_x
         z = rotated_z
 
         # Simple perspective projection
         # When z is larger (further away), objects appear smaller
-        if z - self.camera_pos[2] >= 0:  # Behind or at camera plane
+        if z <= 0:  # Behind or at camera plane
             return None
             
         # Perspective scaling factor
-        scale = 200 / abs(z - self.camera_pos[2])
-        
+        scale = 200 / abs(z)
+
+        y_rel = y - self.camera_pos[1]
+
         # Convert to screen coordinates (center of screen is origin)
         screen_x = x * scale + self.width // 2
-        screen_y = -y * scale + self.height // 2  # Negative because screen y goes down
+        screen_y = -y_rel * scale + self.height // 2  # Negative because screen y goes down
         
         return (int(screen_x), int(screen_y))
     
     def handle_events(self):
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT: return False
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE: 
                 return False
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    return False
-                if event.key == pygame.K_w:
-                    self.camera_pos[2] -= 0.5   # Move camera forward
-                if event.key == pygame.K_s:
-                    self.camera_pos[2] += 0.5   # Move camera backward
-                if event.key == pygame.K_a:    
-                    self.camera_yaw += 0.1        # Rotate camera left
-                if event.key == pygame.K_d:     
-                    self.camera_yaw -= 0.1        # Rotate camera left
+        
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_w]: 
+            self.camera_pos[0] += 0.5*math.sin(self.camera_yaw)
+            self.camera_pos[2] += 0.5*math.cos(self.camera_yaw)
+        
+        if keys[pygame.K_s]: 
+            self.camera_pos[0] -= 0.5*math.sin(self.camera_yaw)
+            self.camera_pos[2] -= 0.5*math.cos(self.camera_yaw)
+
+        if self.camera_pos[0] > 100.0:
+            self.camera_pos[0] = 100.0
+        if self.camera_pos[2] > 100.0:
+            self.camera_pos[2] = 100.0
+        if self.camera_pos[0] < -100.0:
+            self.camera_pos[0] = -100.0
+        if self.camera_pos[2] < -100.0:
+            self.camera_pos[0] = -100.0
+
+        if keys[pygame.K_a]: 
+            self.camera_yaw -= 0.1
+        if keys[pygame.K_d]: 
+            self.camera_yaw += 0.1
 
         return True
     
@@ -82,8 +105,8 @@ class Game3D:
         self.screen.fill(self.background_color)
         
         # Draw a grid to help visualize 3D space
-        for x in range(-10, 11, 2):
-            for z in range(-10, 0, 2):
+        for x in range(-100, 100, 2):
+            for z in range(-100, 100, 2):
                 grid_point = [x, 0, z]
                 self.draw_3d_point(grid_point, (100, 100, 150), 2)
         
