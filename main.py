@@ -2,7 +2,6 @@ import pygame
 import sys
 import math
 from OpenGL.GL import *
-from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from random import randint, random
 
@@ -11,61 +10,23 @@ class Env3D:
         self.width = width
         self.height = height
         
+        # OpenGL display mode
         pygame.init()
-        self.screen = pygame.display.set_mode((width, height), pygame.DOUBLEBUF | pygame.OPENGL)
+        self.screen = pygame.display.set_mode((width, height), 
+                                            pygame.DOUBLEBUF | pygame.OPENGL)
+        pygame.display.set_caption("RatLab OpenGL")
         
-        pygame.display.set_caption("3D Environment")
+        # OpenGL setup
+        glEnable(GL_DEPTH_TEST)
+        glMatrixMode(GL_PROJECTION)
+        gluPerspective(45, width/height, 0.1, 200.0)
+        glMatrixMode(GL_MODELVIEW)
         
-        # Basic 3D camera setup
-        self.camera_pos = [0, 5, 0]  # x, y, z position in 3D space
-        self.camera_yaw = 0  # camera yaw
-        
-        # Simple 3D objects: list of (x, y, z, size, color)
-        self.objects_3d = [[randint(-100, 100), randint(0, 100), randint(-100, 100), 2.0*random(),  (randint(0, 255), randint(0, 255), randint(0, 255))] for i in range(100)]
-        
-        # self.objects_3d = [
-        #     # Position x, y, z, size, color
-        #     [0, 0, 5, 1.0, (255, 0, 0)],    # Red cube at center
-        #     [2, 0, -3, 0.8, (0, 255, 0)],   # Green cube
-        #     [-2, 1, -5, 1.2, (0, 0, 255)],  # Blue cube
-        # ]
-        
-        self.background_color = (30, 30, 40)
-    
-    def project_3d_to_2d(self, point_3d):
-        """
-        Simple 3D to 2D projection
-        Converts a 3D point (x, y, z) to 2D screen coordinates (screen_x, screen_y)
-        """
-        x, y, z = point_3d
-
-        x_rel = x - self.camera_pos[0]
-        z_rel = z - self.camera_pos[2]
-
-        rotated_x = x_rel*math.cos(self.camera_yaw) - z_rel*math.sin(self.camera_yaw) 
-        rotated_z = x_rel*math.sin(self.camera_yaw) + z_rel*math.cos(self.camera_yaw)
-
-        # print(f'Pos: ({self.camera_pos[0]}, {self.camera_pos[1]}, {self.camera_pos[2]}) | Yaw: {self.camera_yaw}')
-        # print(f'Abs: ({x}, {y}, {z}) | Rel: ({rotated_x}, {y}, {rotated_z})')
-
-        x = rotated_x
-        z = rotated_z
-
-        # Simple perspective projection
-        # When z is larger (further away), objects appear smaller
-        if z <= 0:  # Behind or at camera plane
-            return None
-            
-        # Perspective scaling factor
-        scale = 200 / abs(z)
-
-        y_rel = y - self.camera_pos[1]
-
-        # Convert to screen coordinates (center of screen is origin)
-        screen_x = x * scale + self.width // 2
-        screen_y = -y_rel * scale + self.height // 2  # Negative because screen y goes down
-        
-        return (int(screen_x), int(screen_y))
+        # Camera coordinates
+        self.camera_pos = [0, 5, 0]
+        self.camera_yaw = 0
+        self.objects_3d = [[randint(-100, 100), randint(0, 100), randint(-100, 100), 
+                          2.0*random(), (random(), random(), random())] for i in range(100)]
     
     def handle_events(self):
         for event in pygame.event.get():
@@ -77,10 +38,12 @@ class Env3D:
         if keys[pygame.K_w]: 
             self.camera_pos[0] += 0.5*math.sin(self.camera_yaw)
             self.camera_pos[2] += 0.5*math.cos(self.camera_yaw)
-        
         if keys[pygame.K_s]: 
             self.camera_pos[0] -= 0.5*math.sin(self.camera_yaw)
             self.camera_pos[2] -= 0.5*math.cos(self.camera_yaw)
+        if keys[pygame.K_a]: self.camera_yaw += 0.1
+        if keys[pygame.K_d]: self.camera_yaw -= 0.1
+        
 
         if self.camera_pos[0] > 100.0:
             self.camera_pos[0] = 100.0
@@ -89,57 +52,105 @@ class Env3D:
         if self.camera_pos[0] < -100.0:
             self.camera_pos[0] = -100.0
         if self.camera_pos[2] < -100.0:
-            self.camera_pos[0] = -100.0
-
-        if keys[pygame.K_a]: 
-            self.camera_yaw -= 0.1
-        if keys[pygame.K_d]: 
-            self.camera_yaw += 0.1
+            self.camera_pos[2] = -100.0
 
         return True
     
-    def draw_3d_point(self, point_3d, color, size=5):
-        """Draw a single 3D point projected to 2D"""
-        screen_pos = self.project_3d_to_2d(point_3d)
-        if screen_pos:
-            pygame.draw.circle(self.screen, color, screen_pos, size)
-    
     def draw(self):
-        self.screen.fill(self.background_color)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glLoadIdentity()
+
+        # Set camera using OpenGL
+        cam_x, cam_y, cam_z = self.camera_pos
+        look_x = cam_x + math.sin(self.camera_yaw)
+        look_z = cam_z + math.cos(self.camera_yaw)
+        gluLookAt(cam_x, cam_y, cam_z, look_x, cam_y, look_z, 0, 1, 0)
         
-        # Draw a grid to help visualize 3D space
-        for x in range(-100, 100, 2):
-            for z in range(-100, 100, 2):
-                grid_point = [x, 0, z]
-                self.draw_3d_point(grid_point, (100, 100, 150), 2)
-        
-        # Draw our 3D objects as points
+        # Draw floor grid
+        glColor3f(0.3, 0.3, 0.3)
+        glBegin(GL_LINES)
+        for i in range(-100, 101, 10):
+            glVertex3f(i, 0, -100); glVertex3f(i, 0, 100)
+            glVertex3f(-100, 0, i); glVertex3f(100, 0, i)
+        glEnd()
+
+        tile_size = 10
+
+        for x in range(-100, 101, 10):
+            for z in range(-100, 101, 10):
+                color = (255, 255, 255)
+                glColor3f(*color)
+                glBegin(GL_QUADS)
+                glVertex3f(x, 0, z)
+                glVertex3f(x+tile_size, 0, z) 
+                glVertex3f(x+tile_size, 0, z+tile_size)
+                glVertex3f(x, 0, z+tile_size)
+                glEnd()
+    
+        # Draw objects as cubes
         for obj in self.objects_3d:
             x, y, z, size, color = obj
-            self.draw_3d_point([x, y, z], color, 8)
-        
-        # Display camera info
-        font = pygame.font.Font(None, 36)
-        info_text = f"Camera Z: {self.camera_pos[2]:.1f} (Use UP/DOWN arrows)"
-        text = font.render(info_text, True, (255, 255, 255))
-        self.screen.blit(text, (10, 10))
+            glColor3f(*color)
+            glPushMatrix()
+            glTranslatef(x, y, z)
+            # Simple cube drawing
+            glBegin(GL_QUADS)
+            
+            # Front face
+            glVertex3f(-size, -size, size)
+            glVertex3f(size, -size, size)
+            glVertex3f(size, size, size)
+            glVertex3f(-size, size, size)
+            # Back face  
+            glVertex3f(-size, -size, -size)
+            glVertex3f(-size, size, -size)
+            glVertex3f(size, size, -size)
+            glVertex3f(size, -size, -size)
+            # Top face
+            glVertex3f(-size, size, -size)
+            glVertex3f(-size, size, size)
+            glVertex3f(size, size, size)
+            glVertex3f(size, size, -size)
+            # Bottom face
+            glVertex3f(-size, -size, -size)
+            glVertex3f(size, -size, -size)
+            glVertex3f(size, -size, size)
+            glVertex3f(-size, -size, size)
+            # Right face
+            glVertex3f(size, -size, -size)
+            glVertex3f(size, size, -size)
+            glVertex3f(size, size, size)
+            glVertex3f(size, -size, size)
+            # Left face
+            glVertex3f(-size, -size, -size)
+            glVertex3f(-size, -size, size)
+            glVertex3f(-size, size, size)
+            glVertex3f(-size, size, -size)
+
+            glEnd()
+            glPopMatrix()
         
         pygame.display.flip()
+
+    def capture_view(self):
+        """Capture current OpenGL view as image data"""
+        # Read pixels from framebuffer
+        data = glReadPixels(0, 0, self.width, self.height, GL_RGB, GL_UNSIGNED_BYTE)
+        
+        # Convert to Pygame surface
+        view = pygame.image.fromstring(data, (self.width, self.height), 'RGB')
+        view = pygame.transform.flip(view, False, True)  # Flip vertically
+        
+        return view
     
     def run(self):
         clock = pygame.time.Clock()
         running = True
-        
-        print("3D Environment - Step 1")
-        print("You should see colored points in 3D space")
-        print("Press UP/DOWN arrows to move camera forward/backward")
-        print("Press ESC to exit")
-        
         while running:
             clock.tick(60)
             running = self.handle_events()
             self.draw()
-        
+
         pygame.quit()
         sys.exit()
 
