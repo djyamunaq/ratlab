@@ -1,16 +1,19 @@
-# game_3d_step1.py
 import pygame
 import sys
 import math
+from OpenGL.GL import *
+from OpenGL.GLUT import *
+from OpenGL.GLU import *
 from random import randint, random
 
-class Game3D:
+class Env3D:
     def __init__(self, width=800, height=600):
         self.width = width
         self.height = height
         
         pygame.init()
-        self.screen = pygame.display.set_mode((width, height))
+        self.screen = pygame.display.set_mode((width, height), pygame.DOUBLEBUF | pygame.OPENGL)
+        
         pygame.display.set_caption("3D Environment")
         
         # Basic 3D camera setup
@@ -141,5 +144,5 @@ class Game3D:
         sys.exit()
 
 if __name__ == "__main__":
-    game = Game3D()
+    game = Env3D()
     game.run()
