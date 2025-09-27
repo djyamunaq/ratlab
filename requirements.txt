@@ -2,3 +2,6 @@ pygame
 PyOpenGL 
 PyOpenGL_accelerate 
 numpy
+scipy 
+matplotlib 
+imageio
