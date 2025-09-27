@@ -15,6 +15,7 @@ A PyGame and OpenGL-based 3D simulation environment for autonomous agent navigat
 ## Installation
 
 ```
+git clone https://github.com/djyamunaq/ratlab.git
 pip install -r requirements.txt
 ```
 
