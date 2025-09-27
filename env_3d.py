@@ -8,24 +8,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Env3D:
-    def __init__(self, width=800, FPS=60, height=600, auto=False, print=False, points=-1):
+    def __init__(self, width=800, FPS=60, height=600, auto=False, points=-1, visual=True):
         self.width = width
         self.height = height
         self.FPS = FPS
         self.auto = auto
-        self.print = print
         self.agent_linear_vel = 0
         self.agent_angular_vel = 0
         self.agent_trajectory = []
         self.time = 0
         self.dt = 0.05
         self.points = points
+        self.visual=visual
 
         # OpenGL display mode
         pygame.init()
-        self.screen = pygame.display.set_mode((width, height), 
-                                            pygame.DOUBLEBUF | pygame.OPENGL | pygame.RESIZABLE)
-        pygame.display.set_caption("RatLab OpenGL")
+
+        self.screen = pygame.display.set_mode((width, height), pygame.DOUBLEBUF | pygame.OPENGL | pygame.RESIZABLE)
+        
+        pygame.display.set_caption("RatLab")
         
         # OpenGL setup
         glEnable(GL_DEPTH_TEST)
@@ -152,8 +153,10 @@ class Env3D:
         
         # Convert to Pygame surface
         view = pygame.image.fromstring(data, (self.width, self.height), 'RGB')
-        view = pygame.transform.flip(view, False, True)  # Flip vertically
-        
+        view = pygame.transform.rotate(view, -90) 
+        # view = pygame.transform.flip(view, False, True)  # Flip vertically
+        view = pygame.surfarray.array3d(view)
+
         return view
     
     def ornstein_unlenbeck_position_update(self):
@@ -267,27 +270,30 @@ class Env3D:
         plt.savefig('trajectory.png', dpi=300, bbox_inches='tight')
         # plt.show()
 
-    def run(self):
+    def step(self):
         clock = pygame.time.Clock()
         running = True
-        while running:
-            clock.tick(self.FPS)
 
-            if self.auto:
-                self.ornstein_unlenbeck_position_update()
+        clock.tick(self.FPS)
 
-            running = self.handle_events()
-            self.draw()
+        if self.auto:
+            self.ornstein_unlenbeck_position_update()
 
-            self.time += self.dt
+        running = self.handle_events()
+        self.draw()
 
-            print(int(self.time / self.dt))
-            
-            if self.points > 0 and self.time / self.dt > self.points:
-                break
+        self.time += self.dt
 
-        if print:
-            self.print_trajectory()
+        t = int(self.time / self.dt)
 
+        if t % 10000 == 0:
+            print(f'Time = {t}')
+
+        if self.points > 0 and self.time / self.dt > self.points:
+            running = False
+
+        return running
+    
+    def close(self):
         pygame.quit()
         sys.exit()
